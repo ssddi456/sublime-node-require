@@ -19,10 +19,10 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
                 upperWords = [string.capitalize(word) for word in module_candidate_name.split("-")[1::]]
                 module_candidate_name = string.join(module_candidate_name.split("-")[0:1] + upperWords, "")
 
-            require_directive = "%s = require(%s)" % (module_candidate_name, get_path(module_rel_path))
+            require_directive = "var %s = require(%s);" % (module_candidate_name, get_path(module_rel_path))
             region = self.view.sel()[0]
             self.view.insert(edit, region.a, require_directive)
-            self.view.run_command("reindent", {"single_line": True})
+            #self.view.run_command("reindent", {"single_line": True})
 
         def get_path(path):
             settings = sublime.load_settings(__name__ + '.sublime-settings')
@@ -65,13 +65,43 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
 
     def get_suggestion_native_modules(self):
         try:
-            f = tempfile()
-            f.write('console.log(Object.keys(process.binding("natives")))')
-            f.seek(0)
-            jsresult = (Popen(['node'], stdout=PIPE, stdin=f)).stdout.read().replace("'", '"')
-            f.close()
-
-            results = json.loads(jsresult)
+            #use a fixed list
+            results = [ '_debugger',
+              '_linklist',
+              'assert',
+              'buffer',
+              'buffer_ieee754',
+              'child_process',
+              'console',
+              'constants',
+              'crypto',
+              'cluster',
+              'dgram',
+              'dns',
+              'domain',
+              'events',
+              'freelist',
+              'fs',
+              'http',
+              'https',
+              'module',
+              'net',
+              'os',
+              'path',
+              'punycode',
+              'querystring',
+              'readline',
+              'repl',
+              'stream',
+              'string_decoder',
+              'sys',
+              'timers',
+              'tls',
+              'tty',
+              'url',
+              'util',
+              'vm',
+              'zlib' ]
 
             result = [[(lambda ni=ni: [ni, ni]) for ni in results],
                     ["native: " + ni for ni in results]]
