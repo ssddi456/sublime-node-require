@@ -1,3 +1,4 @@
+forked version
 Helper to add node.js "require" clause to modules. 
 
 Just press *ctrl+shift+m*, select the file and boom! 
