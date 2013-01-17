@@ -65,7 +65,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
 
     def get_suggestion_native_modules(self):
         try:
-            #use a fixed list
+            #use a fixed list, node version 0.8.8
             results = [ '_debugger',
               '_linklist',
               'assert',
