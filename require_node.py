@@ -5,11 +5,20 @@ from subprocess import Popen, PIPE
 from tempfile import SpooledTemporaryFile as tempfile
 import json
 import string
-
+import re
 
 class RequireNodeCommand(sublime_plugin.TextCommand):
 
     def write_require(self, resolvers, edit):
+
+        def getlastline(line):
+          prlin = self.view.line(line.a-1)
+          prlin = self.view.substr(prlin)
+          return prlin
+        
+        def getthisline(line):
+          return self.view.substr(line)
+
         def write(index):
             if index == -1:
                 return
@@ -19,11 +28,33 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
                 upperWords = [string.capitalize(word) for word in module_candidate_name.split("-")[1::]]
                 module_candidate_name = string.join(module_candidate_name.split("-")[0:1] + upperWords, "")
 
-            require_directive = "var %s = require(%s);\n" % (module_candidate_name, get_path(module_rel_path))
             region = self.view.sel()[0]
-            self.view.insert(edit, region.a, require_directive)
-            #self.view.run_command("reindent", {"single_line": True})
+            line = self.view.line(region)
+            
+            re_require = r'(var\s\w+\s*=\s*require\([\'\"][\w\\\/\'\"]+[\'\"]\))'
+            require_directive = "var %s = require(%s);" % (module_candidate_name, get_path(module_rel_path))
 
+            lens = 0
+            spos = 0
+
+            if re.match(re_require, getthisline(line)) != None :
+              print('this line is require')
+              spos = line.b
+              lens = self.view.insert(edit, line.b, '\n'+require_directive)
+            elif re.match(re_require, getlastline(line)) != None :
+              print('last line is require')
+              spos = line.a
+              lens = self.view.insert(edit, line.a, require_directive+'\n')
+            else :
+              print('last line not require')
+              spos = line.b
+              lens = self.view.insert(edit, line.b, '\n'+require_directive)
+
+            pos = lens + spos
+            self.view.sel().clear()
+            self.view.sel().add(sublime.Region(pos))
+
+            self.view.show(pos)
         def get_path(path):
             settings = sublime.load_settings(__name__ + '.sublime-settings')
             quotes_type = settings.get('quotes_type')
@@ -73,60 +104,40 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
                             if os.path.isdir(os.path.join(g_node_path, name)) and name != ".bin"]:
             resolvers.append( lambda dir= dir:[dir,dir])
             suggestions.append("globle module: "+ dir )
-        print ( os.listdir(g_node_path))
         return [resolvers, suggestions]
         
     def get_suggestion_native_modules(self):
+        NODE_MODULES_LIST = 'node_modules.list'
         try:
-            #use a fixed list, node version 0.8.8
-            results = [ '_debugger',
-              '_linklist',
-              'assert',
-              'buffer',
-              'buffer_ieee754',
-              'child_process',
-              'console',
-              'constants',
-              'crypto',
-              'cluster',
-              'dgram',
-              'dns',
-              'domain',
-              'events',
-              'freelist',
-              'fs',
-              'http',
-              'https',
-              'module',
-              'net',
-              'os',
-              'path',
-              'punycode',
-              'querystring',
-              'readline',
-              'repl',
-              'stream',
-              'string_decoder',
-              'sys',
-              'timers',
-              'tls',
-              'tty',
-              'url',
-              'util',
-              'vm',
-              'zlib' ]
+            if os.path.exists(NODE_MODULES_LIST) :
+                source = open(NODE_MODULES_LIST)
+                results= json.loads(source.read())
+                source.close()
+            else :
+                # load native node modules from node
+                f = tempfile()
+                f.write('console.log(Object.keys(process.binding("natives")))')
+                f.seek(0)
+                jsresult = (Popen(['node'], stdout=PIPE, stdin=f)).stdout.read().replace("'", '"')
+                f.close()
+                # write list to list file
+                results = json.loads(jsresult)
+                source = open(NODE_MODULES_LIST,'w')
+                source.write(jsresult)
+                source.close()
 
             result = [[(lambda ni=ni: [ni, ni]) for ni in results],
                     ["native: " + ni for ni in results]]
             return result
+        
         except Exception:
-            return [[], []]
+           return [[], []]
 
     def run(self, edit):
         _folders = self.view.window().folders()
 
         suggestions = []
-        resolvers = []
+        resolvers   = []
 
         if len(_folders) != 0 :
           folder = _folders[0]
@@ -146,17 +157,17 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
 
         #create suggestions for modules in node_module folder
         [resolvers_from_nm, suggestions_from_nm] = self.get_suggestion_from_nodemodules()
-        resolvers += resolvers_from_nm
-        suggestions += suggestions_from_nm
+        resolvers                               += resolvers_from_nm
+        suggestions                             += suggestions_from_nm
 
         #create suggestions from native modules
         [resolvers_from_native, suggestions_from_nm] = self.get_suggestion_native_modules()
-        resolvers += resolvers_from_native
-        suggestions += suggestions_from_nm
+        resolvers                                   += resolvers_from_native
+        suggestions                                 += suggestions_from_nm
 
         #create suggestions from global modules
         [resolvers_from_native, suggestions_from_nm] = self.get_suggestion_from_nodemodules_g()
-        resolvers += resolvers_from_native
-        suggestions += suggestions_from_nm
+        resolvers                                   += resolvers_from_native
+        suggestions                                 += suggestions_from_nm
 
         self.view.window().show_quick_panel(suggestions, self.write_require(resolvers, edit))
