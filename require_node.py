@@ -7,6 +7,10 @@ import json
 import string
 import re
 
+print(__file__)
+pkg_path = os.path.abspath(os.path.dirname(__file__))
+print(pkg_path)
+
 class RequireNodeCommand(sublime_plugin.TextCommand):
 
     def write_require(self, resolvers, edit):
@@ -107,7 +111,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
         return [resolvers, suggestions]
         
     def get_suggestion_native_modules(self):
-        NODE_MODULES_LIST = 'node_modules.list'
+        NODE_MODULES_LIST = os.path.join(pkg_path,'node_modules.list')
         try:
             if os.path.exists(NODE_MODULES_LIST) :
                 source = open(NODE_MODULES_LIST)
@@ -155,6 +159,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
                   resolvers.append(self.resolve_from_file(os.path.join(root, file)))
                   suggestions.append([file, root.replace(folder, "", 1) or file])
 
+        print (os.sys.path)
         #create suggestions for modules in node_module folder
         [resolvers_from_nm, suggestions_from_nm] = self.get_suggestion_from_nodemodules()
         resolvers                               += resolvers_from_nm
