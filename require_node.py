@@ -7,9 +7,7 @@ import json
 import string
 import re
 
-print(__file__)
 pkg_path = os.path.abspath(os.path.dirname(__file__))
-print(pkg_path)
 
 class RequireNodeCommand(sublime_plugin.TextCommand):
 
