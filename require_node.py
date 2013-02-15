@@ -33,7 +33,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
             region = self.view.sel()[0]
             line = self.view.line(region)
             
-            re_require = r'(var\s\w+\s*=\s*require\([\'\"][\w\\\/\'\"]+[\'\"]\))'
+            re_require = r'(var\s\w+\s*=\s*require\([^\(\)]*\))'
             require_directive = "var %s = require(%s);" % (module_candidate_name, get_path(module_rel_path))
 
             lens = 0
@@ -142,9 +142,9 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
         resolvers   = []
 
         if len(_folders) != 0 :
-          folder = _folders[0]
-          #create suggestions for all files in the project
-          for root, subFolders, files in os.walk(folder, followlinks=True):
+          for folder in _folders:
+            #create suggestions for all files in the project
+            for root, subFolders, files in os.walk(folder, followlinks=True):
               if root.startswith(os.path.join(folder, "node_modules")):
                   continue
               if root.startswith(os.path.join(folder, ".git")):
