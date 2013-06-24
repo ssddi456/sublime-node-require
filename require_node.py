@@ -9,8 +9,8 @@ import re
 
 pkg_path = os.path.abspath(os.path.dirname(__file__))
 re_require = r'(var\s\w+\s*=\s*require\([^\(\)]*\))'
-re_require_nw = r'(var\s\w+\s*=\s*global.require\([^\(\)]*\))'
-re_empty   = r'^\s*$'
+re_require_nw = r'(var\s\w+\s*=\s*global\.require\([^\(\)]*\))'
+re_empty   = r'^\n?\s*\n?\s*\n?$'
 
 class RequireNodeCommand(sublime_plugin.TextCommand):
     def is_inline_require_region( self ):
@@ -25,7 +25,8 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
         view   = self.view       
         region = view.sel()[0]
         line   = view.line(region)
-        return re.match(self.re_require, getthisline(line)) != None and re.match(self.re_require, getlastline(line)) != None
+
+        return re.search(self.re_require, getthisline(line)) != None or re.search(self.re_require, getlastline(line)) != None
 
     def write_require(self, resolvers, edit):
         view = self.view
@@ -37,22 +38,25 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
         def getthisline(line):
           return view.substr(line)
 
+        # TODO : add module detect
         def write_node_require ( require_directive ) :
           lens = 0
           spos = 0
+          region = view.sel()[0]
+          line   = view.line(region)
 
-          if re.match(self.re_require, getthisline(line)) != None :
+          if re.search(self.re_require, getthisline(line)) != None :
             print('this line is require')
             spos = line.b
             lens = view.insert(edit, line.b, '\n'+require_directive)
-          elif re.match(self.re_require, getlastline(line)) != None :
+          elif re.search(self.re_require, getlastline(line)) != None :
             print('last line is require')
             spos = line.a
             lens = view.insert(edit, line.a, require_directive)
           else :
             print('last line not require')
             spos = line.b
-            if re.match(re_empty, getlastline(line)) :
+            if re.search(re_empty, getlastline(line)) :
               lens = view.insert(edit, line.b, require_directive )
             else :
               lens = view.insert(edit, line.b, '\n'+require_directive)
@@ -65,10 +69,24 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
 
         def write_requirejs ( module_name, module_path ) :
           _edit = view.begin_edit('add package')
-          path_point   = ( view.find(r'require\(\[\n', 0 ) or view.find(r'define\(\[\n', 0 ) ).b
-          view.insert(edit, path_point, '\t'+module_path +',\n');
+          path_point     = ( view.find(r'require\(\[\n', 0 ) or view.find(r'define\(\[\n', 0 ) ).b
+          # check if has load a module
+          path_block_end = view.find( r'\],function\(', path_point).a
+          paths = view.substr( sublime.Region(path_point, path_block_end))
+          has_module = False
+          if re.search(re_empty, paths ) :
+            view.insert(edit, path_point, '\t'+module_path +'\n');
+          else:
+            has_module = True
+            view.insert(edit, path_point, '\t'+module_path +',\n');
+
           module_point = view.find(r'\],function\(\n', path_point).b
-          view.insert(edit, module_point, '\t'+ module_name +',\n');
+          
+          if not has_module :
+            view.insert(edit, module_point, '\t'+module_name +'\n');
+          else:
+            view.insert(edit, module_point, '\t'+module_name +',\n');
+
           view.end_edit(_edit)
 
         def write(index):
@@ -81,9 +99,6 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
                 module_candidate_name = string.join(module_candidate_name.split("-")[0:1] + upperWords, "")
 
             require_directive = self.node_tpl % (module_candidate_name, get_path(module_rel_path))
-
-            
-           
 
             if self.type == 'nodejs' or self.type == 'amdjs':
               write_node_require( require_directive )
@@ -175,6 +190,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
            return [[], []]
 
     def run(self, edit):
+        # read from project folders
         _folders = self.view.window().folders()
 
         suggestions = []
@@ -183,10 +199,11 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
           return
         if len(_folders) != 0 :
           for folder in _folders:
+            path_depth = len ( os.path.abspath(folder) ) + len(os.path.sep)
             #create suggestions for all files in the project
             for root, subFolders, files in os.walk(folder, followlinks=True, topdown=True):
               #max 3 rescure
-              if root[ self.path_depth:].count(os.path.sep) == 3:
+              if root[ path_depth:].count(os.path.sep) == 5:
                   break
               if root.startswith(os.path.join(folder, "node_modules")) :
                   continue
@@ -211,12 +228,12 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
                   suggestions.append([file, root.replace(folder, "", 1) or file])
 
         if (self.type == 'requirejs' and self.is_inline_require_region() ) or self.type != 'requirejs' :
-            #create suggestions for modules in node_module folder
+            #create suggestions for modules in node_modules folder
             [resolvers_from_nm, suggestions_from_nm]     = self.get_suggestion_from_nodemodules()
             resolvers                                   += resolvers_from_nm
             suggestions                                 += suggestions_from_nm
 
-            #create suggestions from native modules
+            #create suggestions from buildin modules
             [resolvers_from_native, suggestions_from_nm] = self.get_suggestion_native_modules()
             resolvers                                   += resolvers_from_native
             suggestions                                 += suggestions_from_nm
@@ -251,8 +268,3 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
         self.node_tpl = "var %s = global.require(%s);"
         self.re_require = re_require_nw
         self.is_node_webkit = True
-
-      if self.type == None :
-        return
-      else :
-        self.path_depth = len ( os.path.dirname(view.file_name()) ) + len(os.path.sep)
