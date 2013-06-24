@@ -201,10 +201,13 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
           for folder in _folders:
             path_depth = len ( os.path.abspath(folder) ) + len(os.path.sep)
             #create suggestions for all files in the project
-            for root, subFolders, files in os.walk(folder, followlinks=True, topdown=True):
+            for root, subFolders, files in os.walk(folder, topdown=True):
               #max 3 rescure
-              if root[ path_depth:].count(os.path.sep) == 5:
-                  break
+              
+              if root[ path_depth:].count(os.path.sep) == 2:
+                  print 'break', subFolders
+                  subFolders[:] = []
+                  continue
               if root.startswith(os.path.join(folder, "node_modules")) :
                   continue
               if root.startswith(os.path.join(folder, ".git")):
@@ -216,6 +219,8 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
                   # get ext
                   file_name, file_ext = os.path.splitext( file )
                   # js file only
+                  if file_name == 'fileinput' :
+                    print file
                   if file_ext != '.js' and file_ext != '.json' :
                       continue
                   # module index specific 
@@ -224,6 +229,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
                       suggestions.append([os.path.split(root)[1], root])
                       continue
                   # add sug
+                  
                   resolvers.append(self.resolve_from_file(os.path.join(root, file)))
                   suggestions.append([file, root.replace(folder, "", 1) or file])
 
