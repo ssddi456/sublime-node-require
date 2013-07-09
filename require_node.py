@@ -120,13 +120,21 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
             return quote + path + quote
 
         return write
-
-    def resolve_from_file(self, full_path):
+    def write_path ( self, resolvers, edit ):
+      def write( index ) :
+        [module_candidate_name, module_rel_path] = resolvers[index]()
+        for sel in self.view.sel() :
+          self.view.insert(edit, sel.a, module_rel_path)
+      return write
+    def resolve_from_file(self, full_path, with_ext):
         def resolve():
             file = self.view.file_name()
             file_wo_ext = os.path.splitext(full_path)[0]
             module_candidate_name = os.path.basename(file_wo_ext).replace(".", "")
-            module_rel_path = os.path.relpath(file_wo_ext, os.path.dirname(file))
+            if with_ext : 
+              module_rel_path = os.path.relpath(full_path, os.path.dirname(file))
+            else :
+              module_rel_path = os.path.relpath(file_wo_ext, os.path.dirname(file))
 
             if module_rel_path[:3] != ".." + os.path.sep:
                 module_rel_path = "." + os.path.sep + module_rel_path
@@ -190,13 +198,39 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
            return [[], []]
 
     def run(self, edit):
+        view = self.view
+        file_name, file_ext = os.path.splitext(view.file_name())
+        
+        if file_ext == '.js' :
+          self.type = 'nodejs'
+        else :
+          self.type = 'other'
+          
+        self.node_tpl   = "var %s = require(%s);"
+        self.re_require = re_require
+        self.is_node_webkit = False
+
+        if view.find(r'require\(\[', 0 ) or view.find(r'define\(\[\n', 0 ) :
+          self.type = 'requirejs'
+
+        elif view.find(re_require,0 ) :
+          self.type = 'nodejs'
+        elif view.find(r'define\s*\(\s*function\s*\(\s*require\s*,\s*exports\s*,\s*module\s*\)\s*\{',0) :
+          # for fcking seajs
+          self.type = 'amdjs' 
+        if view.find_all(re_require_nw,0 ) :
+          self.node_tpl = "var %s = global.require(%s);"
+          self.re_require = re_require_nw
+          self.is_node_webkit = True
+
+        print 'is nw', self.is_node_webkit, 'type', self.type
+
         # read from project folders
         _folders = self.view.window().folders()
 
         suggestions = []
         resolvers   = []
-        if self.type == None :
-          return
+
         if len(_folders) != 0 :
           for folder in _folders:
             path_depth = len ( os.path.abspath(folder) ) + len(os.path.sep)
@@ -205,7 +239,6 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
               #max 3 rescure
               
               if root[ path_depth:].count(os.path.sep) == 2:
-                  print 'break', subFolders
                   subFolders[:] = []
                   continue
               if root.startswith(os.path.join(folder, "node_modules")) :
@@ -221,19 +254,19 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
                   # js file only
                   if file_name == 'fileinput' :
                     print file
-                  if file_ext != '.js' and file_ext != '.json' :
+                  if self.type != 'other' and (file_ext != '.js' and file_ext != '.json' ):
                       continue
                   # module index specific 
                   if file == "index.js":
-                      resolvers.append(self.resolve_from_file(root))
+                      resolvers.append(self.resolve_from_file(root, self.type == 'other' ))
                       suggestions.append([os.path.split(root)[1], root])
                       continue
                   # add sug
                   
-                  resolvers.append(self.resolve_from_file(os.path.join(root, file)))
+                  resolvers.append(self.resolve_from_file(os.path.join(root, file),  self.type == 'other' ))
                   suggestions.append([file, root.replace(folder, "", 1) or file])
 
-        if (self.type == 'requirejs' and self.is_inline_require_region() ) or self.type != 'requirejs' :
+        if self.type != 'other' and ((self.type == 'requirejs' and self.is_inline_require_region() ) or self.type != 'requirejs' ) :
             #create suggestions for modules in node_modules folder
             [resolvers_from_nm, suggestions_from_nm]     = self.get_suggestion_from_nodemodules()
             resolvers                                   += resolvers_from_nm
@@ -248,29 +281,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
             [resolvers_from_native, suggestions_from_nm] = self.get_suggestion_from_nodemodules_g()
             resolvers                                   += resolvers_from_native
             suggestions                                 += suggestions_from_nm
-        self.view.window().show_quick_panel(suggestions, self.write_require(resolvers, edit))
-    def __init__(self, view):
-      self.view = view
-      print 'new require instance'
-      file_name, file_ext = os.path.splitext(view.file_name())
-      if file_ext == '.js' :
-        self.type = 'nodejs'
-      else :
-        self.type = None
-        
-      self.node_tpl   = "var %s = require(%s);"
-      self.re_require = re_require
-      self.is_node_webkit = False
-
-      if view.find(r'require\(\[', 0 ) or view.find(r'define\(\[\n', 0 ) :
-        self.type = 'requirejs'
-
-      elif view.find(re_require,0 ) :
-        self.type = 'nodejs'
-      elif view.find(r'define\s*\(\s*function\s*\(\s*require\s*,\s*exports\s*,\s*module\s*\)\s*\{',0) :
-        # for fcking seajs
-        self.type = 'amdjs' 
-      if view.find_all(re_require_nw,0 ) :
-        self.node_tpl = "var %s = global.require(%s);"
-        self.re_require = re_require_nw
-        self.is_node_webkit = True
+        if self.type == 'other' :
+          self.view.window().show_quick_panel(suggestions, self.write_path(resolvers, edit))
+        else :
+          self.view.window().show_quick_panel(suggestions, self.write_require(resolvers, edit))
