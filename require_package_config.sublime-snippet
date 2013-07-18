@@ -1,0 +1,16 @@
+<snippet>
+  <content><![CDATA[
+require.config({
+  baseUrl: './',
+  paths :{
+    ko : 'libs/knockout-2.2.0',
+    less:'libs/less-1.4.0-beta.min',
+    underscore :'libs/underscore-min'
+  }
+});
+]]></content>
+  <!-- Optional: Set a tabTrigger to define how to trigger the snippet -->
+  <tabTrigger>rec</tabTrigger>
+  <!-- Optional: Set a scope to limit where the snippet will trigger -->
+  <scope>source.js</scope>
+</snippet>
