@@ -238,7 +238,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
             for root, subFolders, files in os.walk(folder, topdown=True):
               #max 3 rescure
               
-              if root[ path_depth:].count(os.path.sep) == 2:
+              if root[ path_depth:].count(os.path.sep) == 4:
                   subFolders[:] = []
                   continue
               if root.startswith(os.path.join(folder, "node_modules")) :
