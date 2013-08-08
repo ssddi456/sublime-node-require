@@ -69,7 +69,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
 
         def write_requirejs ( module_name, module_path ) :
           _edit = view.begin_edit('add package')
-          path_point     = ( view.find(r'require\(\[\n', 0 ) or view.find(r'define\(\[\n', 0 ) ).b
+          path_point     = ( view.find(r'require\(\[\n', 0 ) or view.find(r'define\(\[', 0 ) ).b
           # check if has load a module
           path_block_end = view.find( r'\],function\(', path_point).a
           paths = view.substr( sublime.Region(path_point, path_block_end))
@@ -80,7 +80,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
             has_module = True
             view.insert(edit, path_point, '\t'+module_path +',\n');
 
-          module_point = view.find(r'\],function\(\n', path_point).b
+          module_point = view.find(r'\],function\(', path_point).b
           
           if not has_module :
             view.insert(edit, module_point, '\t'+module_name +'\n');
@@ -210,7 +210,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
         self.re_require = re_require
         self.is_node_webkit = False
 
-        if view.find(r'require\(\[', 0 ) or view.find(r'define\(\[\n', 0 ) :
+        if view.find(r'require\(\[', 0 ) or view.find(r'define\(\[', 0 ) :
           self.type = 'requirejs'
 
         elif view.find(re_require,0 ) :
