@@ -1,0 +1,6 @@
+[
+  {
+    "caption": "insert file path from project",
+    "command": "insert_path" 
+  }
+]

@@ -69,23 +69,26 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
 
         def write_requirejs ( module_name, module_path ) :
           _edit = view.begin_edit('add package')
-          path_point     = ( view.find(r'require\(\[\n', 0 ) or view.find(r'define\(\[', 0 ) ).b
+          path_point     = ( view.find(r'require\(\[', 0 ) or view.find(r'define\(\[', 0 ) ).b
           # check if has load a module
           path_block_end = view.find( r'\],function\(', path_point).a
-          paths = view.substr( sublime.Region(path_point, path_block_end))
+          paths_region = sublime.Region(path_point, path_block_end)
+          paths = view.substr( paths_region )
           has_module = False
-          if re.search(re_empty, paths ) :
-            view.insert(edit, path_point, '\t'+module_path +'\n');
+          if paths.strip() == '' :
+            view.replace(edit, paths_region, '')
+            view.insert(edit, path_point, '\n\t'+module_path +'\n')
           else:
             has_module = True
-            view.insert(edit, path_point, '\t'+module_path +',\n');
+            view.insert(edit, path_point, '\n\t'+module_path +',')
 
           module_point = view.find(r'\],function\(', path_point).b
-          
+          module_end   = view.find(r'\)\s*\{', module_point).a
           if not has_module :
-            view.insert(edit, module_point, '\t'+module_name +'\n');
+            view.replace(edit, sublime.Region(module_point,module_end),'')
+            view.insert(edit, module_point, '\n\t'+module_name +'\n')
           else:
-            view.insert(edit, module_point, '\t'+module_name +',\n');
+            view.insert(edit, module_point, '\n\t'+module_name +',')
 
           view.end_edit(_edit)
 
@@ -128,18 +131,18 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
       return write
     def resolve_from_file(self, full_path, with_ext):
         def resolve():
-            file = self.view.file_name()
-            file_wo_ext = os.path.splitext(full_path)[0]
-            module_candidate_name = os.path.basename(file_wo_ext).replace(".", "")
-            if with_ext : 
-              module_rel_path = os.path.relpath(full_path, os.path.dirname(file))
-            else :
-              module_rel_path = os.path.relpath(file_wo_ext, os.path.dirname(file))
+          file = self.view.file_name()
+          file_wo_ext = os.path.splitext(full_path)[0]
+          module_candidate_name = os.path.basename(file_wo_ext).replace(".", "")
+          if with_ext : 
+            module_rel_path = os.path.relpath(full_path, os.path.dirname(file))
+          else :
+            module_rel_path = os.path.relpath(file_wo_ext, os.path.dirname(file))
 
-            if module_rel_path[:3] != ".." + os.path.sep:
-                module_rel_path = "." + os.path.sep + module_rel_path
+          if module_rel_path[:3] != ".." + os.path.sep:
+              module_rel_path = "." + os.path.sep + module_rel_path
 
-            return [module_candidate_name, module_rel_path.replace(os.path.sep, "/")]
+          return [module_candidate_name, module_rel_path.replace(os.path.sep, "/")]
         return resolve
 
     def get_suggestion_from_nodemodules(self):
@@ -243,9 +246,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
                   continue
               if root.startswith(os.path.join(folder, "node_modules")) :
                   continue
-              if root.startswith(os.path.join(folder, ".git")):
-                  continue
-              if root.startswith(os.path.join(folder, ".svn")):
+              if root.startswith(os.path.join(folder, ".")):
                   continue
               for file in files:
 
