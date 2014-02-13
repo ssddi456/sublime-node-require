@@ -1,4 +1,7 @@
-forked version
+This repos now is very different with origin one.
+
+It will check if the  file is a js file, then check if a requirejs module or node module or a node-webkit module, and inert with different require parttern.
+
 Helper to add node.js "require" clause to modules. 
 
 Just press *ctrl+shift+m*, select the file and boom! 
