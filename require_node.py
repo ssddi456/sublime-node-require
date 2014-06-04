@@ -282,6 +282,18 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
             [resolvers_from_native, suggestions_from_nm] = self.get_suggestion_from_nodemodules_g()
             resolvers                                   += resolvers_from_native
             suggestions                                 += suggestions_from_nm
+        
+        if self.type == 'requirejs' :
+          # hard code amd module-id
+          hard_code_module_ids = {
+            'jquery' : '$',
+            'knockout': 'ko',
+            'underscore' : '__'
+          }
+          for module_id, module_name in hard_code_module_ids.items() :
+            resolvers.append(lambda dir=module_id: [hard_code_module_ids[dir],dir])
+            suggestions.append('solid :: ' + module_id )
+
         if self.type == 'other' :
           self.view.window().show_quick_panel(suggestions, self.write_path(resolvers, edit))
         else :
