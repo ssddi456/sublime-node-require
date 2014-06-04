@@ -1,6 +1,8 @@
 import sublime
 import sublime_plugin
 import os
+import urllib2
+import json
 
 class InsertPathCommand(sublime_plugin.TextCommand):
   """
@@ -22,7 +24,7 @@ class InsertPathCommand(sublime_plugin.TextCommand):
     def write( index ) :
         module_rel_path = resolvers[index]()
         for sel in self.view.sel() :
-          self.view.insert(edit, sel.a, '\'' + module_rel_path + '\'' )
+          self.view.insert(edit, sel.a, module_rel_path )
     return write
   
   def run(self, edit):
@@ -49,3 +51,39 @@ class InsertPathCommand(sublime_plugin.TextCommand):
             suggestions.append([file, root.replace(folder, "", 1) or file])
 
     self.view.window().show_quick_panel(suggestions, self.write_path(resolvers, edit))
+
+class InsertStaticfilePathCommand(sublime_plugin.TextCommand):
+  """docstring for InsertStaticfilePathCommand"""
+  def run(self, edit):
+    def on_done( name):
+      url = "http://api.staticfile.org/v1/search?q=%s" % name
+      request = urllib2.urlopen(url)
+      res = request.read()
+      print( res )
+
+      packages = json.loads( res )
+
+      suggestions = []
+      resolvers   = []
+
+      for lib in packages['libs'] :
+        for asset in lib['assets'] :
+          for asset_file in asset['files'] :
+            suggestions.append( asset['version'] + ' :: ' + asset_file )
+            resolvers.append( 'http://cdn.staticfile.org/%s/%s/%s' % (lib["name"], asset["version"], asset_file) )
+
+      def write ( index ):
+        resolved = resolvers[index]
+        for sel in self.view.sel() :
+          self.view.replace(edit, sel, resolved )
+
+      self.view.window().show_quick_panel( suggestions, write )
+
+    self.view.window().show_input_panel('Enter {username}/{repository name}', '', on_done, self.on_change, self.on_cancel)
+
+  def on_cancel(self, name):
+    pass
+
+  def on_change(self, name):
+    pass
+
