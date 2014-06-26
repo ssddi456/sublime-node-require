@@ -6,5 +6,13 @@
   {
     "caption" : "insert staticfile resource",
     "command" : "insert_staticfile_path"
+  },
+  {
+    "caption" : "go to require module",
+    "command" : "go_to_require"
+  },
+  {
+    "caption" : "remove require",
+    "command" : "de_require_node"
   }
 ]

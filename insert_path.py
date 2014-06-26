@@ -11,7 +11,7 @@ class InsertPathCommand(sublime_plugin.TextCommand):
   def resolve_from_file ( self, full_path ):
     def resolver () :
       file = self.view.file_name()
-    
+
       module_rel_path = os.path.relpath(full_path, os.path.dirname(file))
 
       if module_rel_path[:3] != ".." + os.path.sep:
@@ -22,6 +22,8 @@ class InsertPathCommand(sublime_plugin.TextCommand):
 
   def write_path(self, resolvers, edit):
     def write( index ) :
+        if index == -1:
+          return
         module_rel_path = resolvers[index]()
         for sel in self.view.sel() :
           self.view.insert(edit, sel.a, module_rel_path )
@@ -73,13 +75,15 @@ class InsertStaticfilePathCommand(sublime_plugin.TextCommand):
             resolvers.append( 'http://cdn.staticfile.org/%s/%s/%s' % (lib["name"], asset["version"], asset_file) )
 
       def write ( index ):
+        if index == -1 :
+          return
         resolved = resolvers[index]
         for sel in self.view.sel() :
           self.view.replace(edit, sel, resolved )
 
       self.view.window().show_quick_panel( suggestions, write )
 
-    self.view.window().show_input_panel('Enter {username}/{repository name}', '', on_done, self.on_change, self.on_cancel)
+    self.view.window().show_input_panel('Enter lib name', '', on_done, self.on_change, self.on_cancel)
 
   def on_cancel(self, name):
     pass
