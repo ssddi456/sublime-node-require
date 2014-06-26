@@ -24,6 +24,14 @@ Besides any javascript file you have in your directory, use:
 
 If not in a .js file, this plugin will scane all file in your project folder, create relative path to load.
 
+## goto file 
+
+```[add require]go to require module``` will bring you to the required module
+
+## remove require
+
+```[add require]remove require``` will remove the select required module
+
 ## Installation
 
 ### With [Package Decontrol](https://github.com/jfromaniello/Sublime-Package-Decontrol)

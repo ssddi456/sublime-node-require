@@ -358,7 +358,7 @@ class DeRequireNodeCommand(RequireNodeCommand):
 
       view.end_edit(_edit)
 
-    self.window.show_quick_panel([r_path[0] for r_path in requires], delete_req)
+    self.window.show_quick_panel([r_path[0].strip('"\'') for r_path in requires], delete_req)
 
 class GoToRequireCommand(RequireNodeCommand):
   def run(self, edit):
@@ -380,4 +380,4 @@ class GoToRequireCommand(RequireNodeCommand):
       if os.path.isfile( target_file ) :
         self.window.open_file( target_file )
 
-    self.window.show_quick_panel([r_path[0] for r_path in requires], goto_require)
+    self.window.show_quick_panel([r_path[0].strip('"\'') for r_path in requires], goto_require)

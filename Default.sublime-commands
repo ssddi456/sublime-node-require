@@ -1,18 +1,22 @@
 [
   {
-    "caption": "insert file path from project",
+    "caption": "[add require] insert file path from project",
     "command": "insert_path" 
   },
   {
-    "caption" : "insert staticfile resource",
+    "caption" : "[add require] insert staticfile resource",
     "command" : "insert_staticfile_path"
   },
   {
-    "caption" : "go to require module",
+    "caption" : "[add require]go to require module",
     "command" : "go_to_require"
   },
   {
-    "caption" : "remove require",
+    "caption" : "[add require]remove require",
     "command" : "de_require_node"
+  },
+  {
+    "caption" : "[add require]add require module",
+    "command" : "require_node"
   }
 ]
