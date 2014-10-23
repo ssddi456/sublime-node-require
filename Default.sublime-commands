@@ -18,5 +18,9 @@
   {
     "caption" : "[add require]add require module",
     "command" : "require_node"
+  },
+  {
+    "caption" : "[add require]last package version",
+    "command" : "last_package_version"
   }
 ]
