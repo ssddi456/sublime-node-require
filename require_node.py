@@ -11,7 +11,7 @@ import suggestion_from_folder
 import last_package_version
 
 pkg_path = os.path.abspath(os.path.dirname(__file__))
-re_require = r'(^.*var\s\w+\s*=\s*require\([^\(\)]*\).*$)'
+re_require = r'(^.*var\s\w+\s*=\s*require\(([^\(\)]*)\).*$)'
 re_require_nw = r'(^.*var\s\w+\s*=\s*global\.require\([^\(\)]*\)$)'
 re_empty   = r'^\n?\s*\n?\s*\n?$'
 
@@ -281,7 +281,10 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
         ret = []
         require_rangs = self.view.find_all( self.re_require )
         for r_range in require_rangs :
-          ret.append([ view.substr(r_range),r_range])
+          module_declare = view.substr(r_range)
+          module_declare = re.search(re_require, module_declare)
+
+          ret.append([ module_declare.group(2)[1:-1],r_range])
         return ret
       elif self.type == 'requirejs' : 
         '''
