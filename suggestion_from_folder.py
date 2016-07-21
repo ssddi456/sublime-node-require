@@ -52,5 +52,5 @@ def resolve_from_file( cur, full_path, with_ext):
     if module_rel_path[:3] != ".." + os.path.sep:
         module_rel_path = "." + os.path.sep + module_rel_path
 
-    return [module_candidate_name, module_rel_path.replace(os.path.sep, "/")]
+    return [module_candidate_name, module_rel_path.replace(os.path.sep, "/"), 'is_relative_file']
   return resolve

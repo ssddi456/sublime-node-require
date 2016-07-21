@@ -6,7 +6,9 @@ from tempfile import SpooledTemporaryFile as tempfile
 import json
 import string
 import re
+
 import suggestion_from_folder
+import last_package_version
 
 pkg_path = os.path.abspath(os.path.dirname(__file__))
 re_require = r'(^.*var\s\w+\s*=\s*require\([^\(\)]*\).*$)'
@@ -98,7 +100,8 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
         def write(index):
             if index == -1:
                 return
-            [module_candidate_name, module_rel_path] = resolvers[index]()
+
+            [module_candidate_name, module_rel_path, module_flag] = resolvers[index]()
 
             if module_candidate_name.find("-") != -1:
                 upperWords = [string.capitalize(word) for word in module_candidate_name.split("-")[1::]]
@@ -108,6 +111,15 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
 
             if self.type == 'nodejs' or self.type == 'commonjs':
               write_node_require( require_directive )
+
+              package_json = self.find_package_json()
+
+              is_global_module =  module_flag == 'is_global'
+
+              if package_json and is_global_module:
+
+                self.update_package_json(package_json, module_rel_path)
+
             elif self.type == 'requirejs' :
               if self.is_node_webkit :
                 if self.is_inline_require_region() :
@@ -136,18 +148,56 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
           self.view.insert(edit, sel.a, module_rel_path)
       return write
 
+    def find_package_json(self):
+        resolvers = []
+        suggestions = []
+        current_file_dirs = self.full_name.split(os.path.sep)
+        current_dir = os.path.split(self.full_name)[0]
+        if len(self.window.folders())!= 0 :
+            for x in range(len(self.window.folders()[0].split(os.path.sep)), len(current_file_dirs)):
+                candidate = os.path.join(current_dir, "package.json")
+                
+                if os.path.isfile(candidate) : 
+                    return candidate
+
+                current_dir = os.path.split(current_dir)[0]
+        return False
+
+    def update_package_json(self, package_json_file_path, module_name):
+
+      package_file = open(package_json_file_path, 'r')
+      package_info = json.loads(package_file.read())
+      package_file.close()
+
+      if "dependencies" in package_info :
+        dependencies = package_info["dependencies"]
+      else :
+        dependencies = {}
+
+      if module_name in dependencies : 
+        return
+      else : 
+        dependencies[module_name] = last_package_version.get_module_last_version(module_name)
+
+      package_info["dependencies"] = dependencies
+
+      package_file = open(package_json_file_path, 'w')
+      package_file.write(json.dumps(package_info, indent=2, sort_keys=False))
+      package_file.close()
+
+
     def get_suggestion_from_nodemodules(self):
         resolvers = []
         suggestions = []
         current_file_dirs = self.full_name.split(os.path.sep)
         current_dir = os.path.split(self.full_name)[0]
         if len(self.window.folders())!= 0 :
-          for x in range(len(self.window.folders()[0].split(os.path.sep)), len(current_file_dirs))[::-1]:
+          for x in range(len(self.window.folders()[0].split(os.path.sep)), len(current_file_dirs)):
               candidate = os.path.join(current_dir, "node_modules")
               if os.path.exists(candidate):
                   for dir in [name for name in os.listdir(candidate)
                                    if os.path.isdir(os.path.join(candidate, name)) and name != ".bin"]:
-                      resolvers.append(lambda dir=dir: [dir, dir])
+                      resolvers.append(lambda dir=dir: [dir, dir, 'is_installed'])
                       suggestions.append("module: " + dir)
                   break
               current_dir = os.path.split(current_dir)[0]
@@ -156,12 +206,13 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
     def get_suggestion_from_nodemodules_g(self):
         resolvers = []
         suggestions =[]
-        g_node_path = os.environ.get('NODE_PATH')
-        if g_node_path != None :
-          for dir in [ name for name in os.listdir(g_node_path)
-                            if os.path.isdir(os.path.join(g_node_path, name)) and name != ".bin"]:
-            resolvers.append( lambda dir= dir:[dir,dir])
-            suggestions.append("globle module: "+ dir )
+        pathes = [os.environ.get('NODE_PATH')]
+        for _path in pathes :
+          if _path != None :
+            for dir in [ name for name in os.listdir(_path)
+                              if os.path.isdir(os.path.join(_path, name)) and name != ".bin"]:
+              resolvers.append( lambda dir= dir:[dir, dir, 'is_global' ])
+              suggestions.append("global module: "+ dir )
         return [resolvers, suggestions]
         
     def get_suggestion_native_modules(self):
@@ -184,8 +235,10 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
                 source.write(jsresult)
                 source.close()
 
-            result = [[(lambda ni=ni: [ni, ni]) for ni in results],
-                    ["native: " + ni for ni in results]]
+            result = [
+                        [(lambda ni=ni: [ni, ni, 'is_native']) for ni in results],
+                        ["native: " + ni for ni in results]
+                      ]
             return result
         
         except Exception:
@@ -195,7 +248,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
       file_name, file_ext = os.path.splitext( self.full_name )
       view = self.view
 
-      if file_ext == '.js' :
+      if file_ext in ['.js', '.ts'] :
         self.type = 'nodejs'
       else :
         self.type = 'other'
@@ -313,13 +366,12 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
           'underscore' : '__'
         }
         for module_id, module_name in hard_code_module_ids.items() :
-          resolvers.append(lambda dir=module_id: [hard_code_module_ids[dir],dir])
+          resolvers.append(lambda dir=module_id: [hard_code_module_ids[dir],dir, 'is_hard_code'])
           suggestions.append('solid :: ' + module_id )
 
       if self.type == 'other' :
         self.window.show_quick_panel(suggestions, self.write_path(resolvers, edit))
       else :
-        print suggestions
         self.window.show_quick_panel(suggestions, self.write_require(resolvers, edit))
 
 class DeRequireNodeCommand(RequireNodeCommand):

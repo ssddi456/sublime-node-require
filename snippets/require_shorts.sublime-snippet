@@ -1,8 +1,0 @@
-<snippet>
-    <content><![CDATA[
-var ${1/(f)|(l)|(under)|(u)|([^fu])|/(?1:fs)(?2:logs)(?3:_)(?4:util)(?5:$&)/} = require('${1:f}${1/(f)|(l)|(under)|(u)|.*/(?1:s)(?2:ogs)(?3:score)(?4:til)/}');
-    	]]></content>
-    <tabTrigger>req</tabTrigger>
-    <scope>source.js</scope>
-    <description>require fs, utils</description>
-</snippet>
