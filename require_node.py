@@ -365,7 +365,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
         # hard code amd module-id
         hard_code_module_ids = {
           'jquery' : '$',
-          'knockout': 'ko',
+          'ko': 'ko',
           'underscore' : '__'
         }
         for module_id, module_name in hard_code_module_ids.items() :
