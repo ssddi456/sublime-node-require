@@ -13,3 +13,5 @@ var package_info = path.join(module_main_path,'package.json');
 package_info = JSON.parse(fs.readFileSync(package_info));
 var version = package_info.version;
 console.log( '~' + version );
+
+process.exit(0);

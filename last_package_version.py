@@ -2,36 +2,40 @@ import sublime
 import sublime_plugin
 import os
 import json
-import threading
 
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen, PIPE
 
 CREATE_NO_WINDOW = 0x08000000
 pkg_path = os.path.abspath(os.path.dirname(__file__))
 
 
-def get_module_last_version( name ):
-  check_thread = Popen(['node', os.path.join(pkg_path,'node_scripts/get_target_repo_installed_version.js'), str(name)], stdout=PIPE,stderr=PIPE, creationflags=CREATE_NO_WINDOW)
-  jsresult = check_thread.stdout.read()
-  check_err = check_thread.stderr.read()
-  if check_err : 
-    print check_err
-    return False
-  return jsresult[:-1]
+class SublimeNodeRequireReplaceCommand(sublime_plugin.TextCommand):
+  def run( self, edit, chrs, region=None ):
+    if region :
+      self.view.replace(edit, region, chrs)
+    else :
+      for sel in self.view.sel() :
+        self.view.replace(edit, sel, chrs)
+
+class GetLastPackageVersionCommand(sublime_plugin.TextCommand):
+
+  def run( self, edit, name ):
+    check_thread = Popen(['node', os.path.join(pkg_path,'node_scripts/get_target_repo_installed_version.js'), str(name)], stdout=PIPE,stderr=PIPE, creationflags=CREATE_NO_WINDOW)
+    jsresult = check_thread.stdout.read()
+    check_err = check_thread.stderr.read()
+    if check_err : 
+      print(check_err)
+      return False
+    res = jsresult[:-1]
+
+    if res :
+      for sel in self.view.sel() :
+        self.view.replace(edit, sel, str(res, encoding='utf8'))
 
 class LastPackageVersionCommand(sublime_plugin.TextCommand):
   def run(self, edit):
 
     def on_done( name ):
-      res = get_module_last_version(name)
+      self.view.run_command('get_last_package_version', { 'name' : name })
 
-      if res :
-        res_len = len(res)
-        for sel in self.view.sel() :
-
-          self.view.replace(edit, sel, res)
-
-    def idol(name):
-      pass
-
-    self.view.window().show_input_panel('Enter lib name', '', on_done, idol, idol)
+    self.view.window().show_input_panel('Enter lib name', '', on_done, None, None)

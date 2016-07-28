@@ -24,8 +24,8 @@ def require_from_folder( _folders, cur, rtype="" ):
           file_name, file_ext = os.path.splitext( file )
           # js file only
           if file_name == 'fileinput' :
-            print file
-          if rtype != 'other' and (file_ext != '.js' and file_ext != '.json' ):
+            print(file)
+          if rtype != 'other' and not (file_ext in ['.js', '.json', '.es6', '.ts', '.jsx']):
               continue
           # module index specific 
           if file == "index.js":
@@ -33,24 +33,26 @@ def require_from_folder( _folders, cur, rtype="" ):
               suggestions.append( [os.path.split(root)[1], root])
               continue
           # add sug
-          
-          resolvers.append(resolve_from_file(cur, os.path.join(root, file),  rtype == 'other' ))
+
+          print(file)
+
+          resolvers.append(resolve_from_file(cur, os.path.join(root, file),  True ))
           suggestions.append([ file, root.replace(folder, "", 1) or file ])
+
   return suggestions, resolvers
 
 def resolve_from_file( cur, full_path, with_ext):
-  def resolve():
-    file_wo_ext = os.path.splitext(full_path)[0]
-    module_candidate_name = os.path.basename(file_wo_ext).replace(".", "")
-    dir_name =  os.path.dirname(cur)
 
-    if with_ext : 
-      module_rel_path = os.path.relpath(full_path, dir_name)
-    else :
-      module_rel_path = os.path.relpath(file_wo_ext, dir_name)
+  file_wo_ext = os.path.splitext(full_path)[0]
+  module_candidate_name = os.path.basename(file_wo_ext).replace(".", "")
+  dir_name =  os.path.dirname(cur)
 
-    if module_rel_path[:3] != ".." + os.path.sep:
-        module_rel_path = "." + os.path.sep + module_rel_path
+  if with_ext : 
+    module_rel_path = os.path.relpath(full_path, dir_name)
+  else :
+    module_rel_path = os.path.relpath(file_wo_ext, dir_name)
 
-    return [module_candidate_name, module_rel_path.replace(os.path.sep, "/"), 'is_relative_file']
-  return resolve
+  if module_rel_path[:3] != ".." + os.path.sep:
+    module_rel_path = "." + os.path.sep + module_rel_path
+
+  return [module_candidate_name, module_rel_path.replace(os.path.sep, "/"), 'is_relative_file']

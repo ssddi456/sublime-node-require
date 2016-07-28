@@ -6,13 +6,24 @@ from tempfile import SpooledTemporaryFile as tempfile
 import json
 import string
 import re
+import sys
 
-import suggestion_from_folder
-import last_package_version
+from subprocess import Popen, PIPE
 
 pkg_path = os.path.abspath(os.path.dirname(__file__))
-re_require = r'(^.*var\s\w+\s*=\s*require\(([^\(\)]*)\).*$)'
-re_require_nw = r'(^.*var\s\w+\s*=\s*global\.require\([^\(\)]*\)$)'
+
+python_version = sys.version_info[0]
+
+if python_version == 3 :
+  from . import last_package_version
+  from . import suggestion_from_folder
+else:
+  import last_package_version
+  import suggestion_from_folder
+
+
+re_require = r'(^.*var\s\w+\s*=\s*require\(([^\(\)]+)\).*$)'
+re_require_nw = r'(^.*var\s\w+\s*=\s*global\.require\([^\(\)]+\)$)'
 re_empty   = r'^\n?\s*\n?\s*\n?$'
 
 class RequireNodeCommand(sublime_plugin.TextCommand):
@@ -31,121 +42,20 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
 
       return re.search(self.re_require, getthisline(line)) != None or re.search(self.re_require, getlastline(line)) != None
 
-    def write_require(self, resolvers, edit):
-        view = self.view
-        def getlastline(line):
-          prlin = view.line(line.a-1)
-          prlin = view.substr(prlin)
-          return prlin
-        
-        def getthisline(line):
-          return view.substr(line)
+    def write_require(self, resolvers):
+      def write(index):
+        if index == -1:
+            return
 
-        # TODO : add module detect
-        def write_node_require ( require_directive ) :
-          lens = 0
-          spos = 0
-          region = view.sel()[0]
-          line   = view.line(region)
+        self.view.run_command('write_require', { 'resolvers' : resolvers, 'index' : index })
 
-          if re.search(self.re_require, getthisline(line)) != None :
-            print('this line is require')
-            spos = line.b
-            lens = view.insert(edit, line.b, '\n'+require_directive)
-          elif re.search(self.re_require, getlastline(line)) != None :
-            print('last line is require')
-            spos = line.a
-            lens = view.insert(edit, line.a, require_directive)
-          else :
-            print('last line not require')
-            spos = line.b
-            if re.search(re_empty, getlastline(line)) :
-              lens = view.insert(edit, line.b, require_directive )
-            else :
-              lens = view.insert(edit, line.b, '\n'+require_directive)
+      return write
 
-          pos = lens + spos
-          view.sel().clear()
-          view.sel().add(sublime.Region(pos))
-
-          view.show(pos)
-
-        def write_requirejs ( module_name, module_path ) :
-          _edit = view.begin_edit('add package')
-          path_point     = ( view.find(r'require\s*\(\[', 0 ) or view.find(r'define\s*\(\[', 0 ) ).b
-          # check if has load a module
-          delimiter = view.find( r'\]\s*,\s*function\s*\(', path_point)
-          path_block_end = delimiter.a
-          paths_region = sublime.Region(path_point, path_block_end)
-          paths = view.substr( paths_region )
-          has_module = False
-          if paths.strip() == '' :
-            view.replace(edit, paths_region, '')
-            view.insert(edit, path_point, '\n\t'+module_path +'\n')
-          else:
-            has_module = True
-            view.insert(edit, path_point, '\n\t'+module_path +',')
-
-          delimiter = view.find( r'\]\s*,\s*function\s*\(', path_point)
-          module_point = delimiter.b
-          module_end   = view.find(r'\)\s*\{', module_point).a
-          if not has_module :
-            view.replace(edit, sublime.Region(module_point,module_end),'')
-            view.insert(edit, module_point, '\n\t'+module_name +'\n')
-          else:
-            view.insert(edit, module_point, '\n\t'+module_name +',')
-
-          view.end_edit(_edit)
-
-        def write(index):
-            if index == -1:
-                return
-
-            [module_candidate_name, module_rel_path, module_flag] = resolvers[index]()
-
-            if module_candidate_name.find("-") != -1:
-                upperWords = [string.capitalize(word) for word in module_candidate_name.split("-")[1::]]
-                module_candidate_name = string.join(module_candidate_name.split("-")[0:1] + upperWords, "")
-
-            require_directive = self.node_tpl % (module_candidate_name, get_path(module_rel_path))
-
-            if self.type == 'nodejs' or self.type == 'commonjs':
-              write_node_require( require_directive )
-
-              package_json = self.find_package_json()
-
-              is_global_module =  module_flag == 'is_global'
-
-              if package_json and is_global_module:
-
-                self.update_package_json(package_json, module_rel_path)
-
-            elif self.type == 'requirejs' :
-              if self.is_node_webkit :
-                if self.is_inline_require_region() :
-                  write_node_require( require_directive )
-                  return
-              
-              write_requirejs( module_candidate_name, get_path(module_rel_path) )
-
-
-        def get_path(path):
-            settings = sublime.load_settings(__name__ + '.sublime-settings')
-            quotes_type = settings.get('quotes_type')
-            quote = "'"
-            if quotes_type == "double":
-                quote = "\""
-            return quote + path + quote
-
-        return write
-    def write_path ( self, resolvers, edit ):
+    def write_path ( self, resolvers ):
       def write( index ) :
         if index == -1 :
           return
-
-        [module_candidate_name, module_rel_path] = resolvers[index]()
-        for sel in self.view.sel() :
-          self.view.insert(edit, sel.a, module_rel_path)
+        self.view.run_command('write_path', { 'resolvers' : resolvers, 'index' : index })
       return write
 
     def find_package_json(self):
@@ -197,7 +107,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
               if os.path.exists(candidate):
                   for dir in [name for name in os.listdir(candidate)
                                    if os.path.isdir(os.path.join(candidate, name)) and name != ".bin"]:
-                      resolvers.append(lambda dir=dir: [dir, dir, 'is_installed'])
+                      resolvers.append([dir, dir, 'is_installed'])
                       suggestions.append("module: " + dir)
                   break
               current_dir = os.path.split(current_dir)[0]
@@ -211,7 +121,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
           if _path != None :
             for dir in [ name for name in os.listdir(_path)
                               if os.path.isdir(os.path.join(_path, name)) and name != ".bin"]:
-              resolvers.append( lambda dir= dir:[dir, dir, 'is_global' ])
+              resolvers.append([dir, dir, 'is_global' ])
               suggestions.append("global module: "+ dir )
         return [resolvers, suggestions]
         
@@ -236,7 +146,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
                 source.close()
 
             result = [
-                        [(lambda ni=ni: [ni, ni, 'is_native']) for ni in results],
+                        [[ni, ni, 'is_native'] for ni in results],
                         ["native: " + ni for ni in results]
                       ]
             return result
@@ -245,11 +155,18 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
            return [[], []]
 
     def type_check( self ):
-      file_name, file_ext = os.path.splitext( self.full_name )
       view = self.view
+
+      self.full_name = view.file_name()
+      self.window = view.window()
+
+      file_name, file_ext = os.path.splitext( self.full_name )
+
 
       if file_ext in ['.js', '.ts'] :
         self.type = 'nodejs'
+      elif file_ext in ['.es6', '.jsx'] :
+        self.type = 'es6'
       else :
         self.type = 'other'
         
@@ -265,12 +182,19 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
       elif view.find(r'define\s*\(\s*function\s*\(\s*require\s*,\s*exports\s*,\s*module\s*\)\s*\{',0) :
         # for fcking seajs
         self.type = 'commonjs' 
+      elif self.type == 'nodejs' and view.find(r'^\s*(export|import) ', 0):
+        self.type = 'es6'
+
+      if self.type == 'es6' : 
+        self.node_tpl   = "import * from %s = require(%s);"
+        self.re_require = r'import .+ from ([^;]+);|import ([^;]+);'
+
       if view.find(re_require_nw,0 ) :
         self.node_tpl = "var %s = global.require(%s);"
         self.re_require = re_require_nw
         self.is_node_webkit = True
 
-      print 'is nw', self.is_node_webkit, 'type', self.type
+      print( 'is nw', self.is_node_webkit, 'type', self.type)
 
     def get_current_require( self ):
       view = self.view
@@ -284,7 +208,11 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
           module_declare = view.substr(r_range)
           module_declare = re.search(re_require, module_declare)
 
-          ret.append([ module_declare.group(2)[1:-1],r_range])
+          if module_declare.group(2):
+            ret.append([ module_declare.group(2)[1:-1],r_range])
+          elif module_declare.group(1):
+            ret.append([ module_declare.group(1)[1:-1],r_range])
+
         return ret
       elif self.type == 'requirejs' : 
         '''
@@ -305,7 +233,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
         if r_paths.strip() == '' :
           return ret
 
-        print  r_paths.split(r',')
+        print(  r_paths.split(r','))
         r_paths = r_paths.split(r',')
         r_declares = r_declares.split(r',')
 
@@ -317,7 +245,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
           _last_path_point   = last_path_point + len(r_path) + 1
           _last_module_point = last_module_point + len(r_declare) + 1
           
-          print r_path, r_declare
+          print( r_path, r_declare)
           ret.append([r_path.strip(), 
                       sublime.Region( last_path_point,   _last_path_point),
                       sublime.Region( last_module_point, _last_module_point)
@@ -369,49 +297,241 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
           'underscore' : '__'
         }
         for module_id, module_name in hard_code_module_ids.items() :
-          resolvers.append(lambda dir=module_id: [hard_code_module_ids[dir],dir, 'is_hard_code'])
+          resolvers.append([hard_code_module_ids[module_id],module_id, 'is_hard_code'])
           suggestions.append('solid :: ' + module_id )
 
       if self.type == 'other' :
-        self.window.show_quick_panel(suggestions, self.write_path(resolvers, edit))
+        self.window.show_quick_panel(suggestions, self.write_path(resolvers))
       else :
-        self.window.show_quick_panel(suggestions, self.write_require(resolvers, edit))
+        self.window.show_quick_panel(suggestions, self.write_require(resolvers))
+
+
+class WriteRequireCommand(RequireNodeCommand):
+
+  def run( self, edit, resolvers, index):
+
+    self.type_check()
+
+    view = self.view
+
+    def lodash(name):
+      if name.find("-") != -1:
+        name = "_".join(name.split("-"))
+      return name
+
+    def camelcase(name):
+      name = string.capwords(name, '-').replace('-', '')
+      name = name[0].lower() + name[1::]
+      return name
+
+    def get_path(path):
+        settings = sublime.load_settings(__name__ + '.sublime-settings')
+        quotes_type = settings.get('quotes_type')
+        quote = "'"
+        if quotes_type == "double":
+            quote = "\""
+
+        path, ext_name = os.path.splitext(path)
+        return quote + path + quote
+
+    def getlastline(line):
+      prlin = view.line(line.a-1)
+      prlin = view.substr(prlin)
+      return prlin
+    
+    def getthisline(line):
+      return view.substr(line)
+
+    # TODO : add module detect
+    def write_node_require ( require_directive ) :
+      lens = 0
+      spos = 0
+      region = view.sel()[0]
+      line   = view.line(region)
+
+      if re.search(self.re_require, getthisline(line)) != None :
+        print('this line is require')
+        spos = line.b
+        lens = view.insert(edit, line.b, '\n'+require_directive)
+      elif re.search(self.re_require, getlastline(line)) != None :
+        print('last line is require')
+        spos = line.a
+        lens = view.insert(edit, line.a, require_directive)
+      else :
+        print('last line not require')
+        spos = line.b
+        if re.search(re_empty, getlastline(line)) :
+          lens = view.insert(edit, line.b, require_directive )
+        else :
+          lens = view.insert(edit, line.b, '\n'+require_directive)
+
+      pos = lens + spos
+      view.sel().clear()
+      view.sel().add(sublime.Region(pos))
+
+      view.show(pos)
+
+    def write_requirejs ( module_name, module_path ) :
+
+      path_point     = ( view.find(r'require\s*\(\[', 0 ) or view.find(r'define\s*\(\[', 0 ) ).b
+      # check if has load a module
+      delimiter = view.find( r'\]\s*,\s*function\s*\(', path_point)
+      path_block_end = delimiter.a
+      paths_region = sublime.Region(path_point, path_block_end)
+      paths = view.substr( paths_region )
+      has_module = False
+      if paths.strip() == '' :
+        view.replace(edit, paths_region, '')
+        view.insert(edit, path_point, '\n\t'+module_path +'\n')
+      else:
+        has_module = True
+        view.insert(edit, path_point, '\n\t'+module_path +',')
+
+      delimiter = view.find( r'\]\s*,\s*function\s*\(', path_point)
+      module_point = delimiter.b
+      module_end   = view.find(r'\)\s*\{', module_point).a
+      if not has_module :
+        view.replace(edit, sublime.Region(module_point,module_end),'')
+        view.insert(edit, module_point, '\n\t'+module_name +'\n')
+      else:
+        view.insert(edit, module_point, '\n\t'+module_name +',')
+
+    def write_es6_import( module_candidate_name, module_rel_path, module_flag ):
+      lens = 0
+      spos = 0
+      region = view.sel()[0]
+      line   = view.line(region)
+
+      if module_flag == 'is_relative_file' :
+        # parse file exports
+
+        CREATE_NO_WINDOW = 0x08000000
+        path = os.path
+
+        check_thread = Popen(['node', 
+            path.join(pkg_path,'node_scripts/get_exports_names.js'), 
+            path.normpath(path.join(path.dirname(self.full_name), module_rel_path))
+          ], stdout=PIPE,stderr=PIPE, creationflags=CREATE_NO_WINDOW)
+
+        module_export_names = check_thread.stdout.read().decode('utf8').strip()
+        check_err = check_thread.stderr.read()
+
+        if len(module_export_names) == 0 :
+          module_export_names = module_candidate_name
+
+        print('module_export_names', module_export_names)
+        print('check_err', check_err)
+
+        require_directive = 'import {0} from {1};'.format(module_export_names, get_path(module_rel_path))
+      else :
+        require_directive = 'import {0} from {1};'.format(module_candidate_name, get_path(module_rel_path))
+
+      print(require_directive)
+
+
+      if re.search(self.re_require, getthisline(line)) != None :
+        print('this line is require')
+        spos = line.b
+        lens = view.insert(edit, line.b, '\n'+require_directive)
+      elif re.search(self.re_require, getlastline(line)) != None :
+        print('last line is require')
+        spos = line.a
+        lens = view.insert(edit, line.a, require_directive)
+      else :
+        print('last line not require')
+        spos = line.b
+        if re.search(re_empty, getlastline(line)) :
+          lens = view.insert(edit, line.b, require_directive )
+        else :
+          lens = view.insert(edit, line.b, '\n'+require_directive)
+
+
+    [module_candidate_name, module_rel_path, module_flag] = resolvers[index]
+
+    module_candidate_name = camelcase(module_candidate_name)
+
+    module_info = (module_candidate_name, get_path(module_rel_path))
+
+    if self.type == 'nodejs' or self.type == 'commonjs':
+      require_directive = self.node_tpl % module_info
+
+      write_node_require( require_directive )
+
+      package_json = self.find_package_json()
+
+      is_global_module =  module_flag == 'is_global'
+
+      if package_json and is_global_module:
+
+        self.update_package_json(package_json, module_rel_path)
+
+    elif self.type == 'requirejs' :
+      if self.is_node_webkit :
+        if self.is_inline_require_region() :
+          write_node_require( require_directive )
+          return
+      
+      require_directive = self.node_tpl % module_info
+
+      write_requirejs( module_candidate_name, module_rel_path )
+
+    elif self.type == 'es6':
+
+      write_es6_import( module_candidate_name, module_rel_path, module_flag )
+
+    package_json = self.find_package_json()
+
+    is_global_module =  module_flag == 'is_global'
+
+    if package_json and is_global_module:
+
+      self.update_package_json(package_json, module_rel_path)
+
+
+class WritePathCommand(RequireNodeCommand):
+  def run( self, edit, resolvers, index):
+    [module_candidate_name, module_rel_path, module_flag] = resolvers[index]
+    for sel in self.view.sel() :
+      self.view.insert(edit, sel.a, module_rel_path)
+
+
+class DeRequireNodeExecCommand(RequireNodeCommand):
+  def run(self, edit, index):
+    self.type_check()
+    requires = self.get_current_require()
+
+    # todos make
+
+    if self.type == 'requirejs':
+      req = requires[index]
+
+      # last item should remove leading comma, but not what is follow
+      if req == requires[-1] :
+        req_1_a = req[1].a
+        req_2_a = req[2].a
+        if index != 0 :
+          req_1_a -= 1
+          req_2_a -= 1
+
+        req_1_b = req[1].b - 2
+        req_2_b = req[2].b - 2
+
+        req[1] = sublime.Region( req_1_a, req_1_b)
+        req[2] = sublime.Region( req_2_a, req_2_b)
+
+      self.view.replace(edit, req[2], '')
+      self.view.replace(edit, req[1], '')
 
 class DeRequireNodeCommand(RequireNodeCommand):
   def run(self, edit):
     view = self.view
-    self.full_name = view.file_name()
-    self.window = view.window()
-
     self.type_check()
     requires = self.get_current_require()
     
     def delete_req ( index ):
       if index == -1:
         return
-      _edit = view.begin_edit()
-
-      if self.type == 'requirejs':
-        req = requires[index]
-
-        # last item should remove leading comma, but not what is follow
-        if req == requires[-1] :
-          req_1_a = req[1].a
-          req_2_a = req[2].a
-          if index != 0 :
-            req_1_a -= 1
-            req_2_a -= 1
-
-          req_1_b = req[1].b - 2
-          req_2_b = req[2].b - 2
-
-          req[1] = sublime.Region( req_1_a, req_1_b)
-          req[2] = sublime.Region( req_2_a, req_2_b)
-
-        view.replace(_edit, req[2],'')
-        view.replace(_edit, req[1],'')
-
-      view.end_edit(_edit)
+      self.view.run_command('de_require_node_exec', { 'index' : index})
 
     self.window.show_quick_panel([r_path[0].strip('"\'') for r_path in requires], delete_req)
 
@@ -430,7 +550,7 @@ class GoToRequireCommand(RequireNodeCommand):
 
       r_path = requires[index][0].strip("'")
       target_file = os.path.join( os.path.split( self.full_name)[0], r_path + '.js' )
-      print 'target file:' +  target_file
+      print( 'target file:' +  target_file)
 
       if os.path.isfile( target_file ) :
         self.window.open_file( target_file )
