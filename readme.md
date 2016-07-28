@@ -14,18 +14,35 @@ Just press *ctrl+shift+m*, select the file and boom!
 
 
 ## requirements
-nodejs > 4.x
+
+nodejs > 4.x 
+
+estraverse
+
+esprima
 
 
 ## install
 
-```git clone``` this repo into your %sublime_root%/Data/Packages/
+## Installation
+
+### With [Package Decontrol](https://github.com/jfromaniello/Sublime-Package-Decontrol)
+
+~~~
+ssddi456/sublime-node-require
+~~~
+
+### With Git
+
+```git clone https://github.com/ssddi456/sublime-node-require.git``` into your %sublime_root%/Data/Packages/
+
 
 ```npm install estraverse -g```
 
 ```npm install esprima -g```
 
 then enjoy.
+
 
 ## load modules
 
@@ -50,18 +67,3 @@ If not in a .js file, this plugin will scane all file in your project folder, cr
 
 ```[add require]remove require``` will remove the select required module
 
-## Installation
-
-### With [Package Decontrol](https://github.com/jfromaniello/Sublime-Package-Decontrol)
-
-~~~
-ssddi456/sublime-node-require
-~~~
-
-### With Git
-
-~~~
-git clone https://github.com/ssddi456/sublime-node-require.git ./sublime-node-require
-~~~
-
-In your sublime text package folder.
