@@ -418,10 +418,10 @@ class WriteRequireCommand(RequireNodeCommand):
             path.normpath(path.join(path.dirname(self.full_name), module_rel_path))
           ])
 
+        module_export_names = module_export_names.strip()
+
         if len(module_export_names) == 0 :
-          module_export_names = module_candidate_name
-        else:
-          module_export_names = module_export_names.strip()
+          module_export_names = '* as ' + module_candidate_name
 
         print('module_export_names', module_export_names)
 
