@@ -24,22 +24,26 @@ esprima
 
 ## install
 
-## Installation
+### With Git
+
+the sublime text custom plugins folder is ```Data/Packages```
+
+```cd %sublime_root%/Data/Packages/```
+
+```git clone https://github.com/ssddi456/sublime-node-require.git```
+
+```cd sublime-node-require```
+
+```npm install```
+
 
 ### With [Package Decontrol](https://github.com/jfromaniello/Sublime-Package-Decontrol)
+
+sublimetext2 only
 
 ~~~
 ssddi456/sublime-node-require
 ~~~
-
-### With Git
-
-```git clone https://github.com/ssddi456/sublime-node-require.git``` into your %sublime_root%/Data/Packages/
-
-
-```npm install estraverse -g```
-
-```npm install esprima -g```
 
 then enjoy.
 

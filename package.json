@@ -1,0 +1,26 @@
+{
+  "main": "index.js", 
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }, 
+  "description": "This repos is very different with the origin one.", 
+  "dependencies": {
+    "esprima": "~2.7.2", 
+    "estraverse": "~4.2.0"
+  }, 
+  "directories": {
+    "test": "test"
+  }, 
+  "name": "sublime-node-require", 
+  "repository": {
+    "url": "git+https://github.com/ssddi456/sublime-node-require.git", 
+    "type": "git"
+  }, 
+  "version": "1.0.0", 
+  "bugs": {
+    "url": "https://github.com/ssddi456/sublime-node-require/issues"
+  }, 
+  "homepage": "https://github.com/ssddi456/sublime-node-require#readme", 
+  "author": "ssddi456", 
+  "license": "ISC"
+}

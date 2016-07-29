@@ -2,13 +2,18 @@ import sublime
 import sublime_plugin
 import os
 import json
+import sys
 
-from subprocess import Popen, PIPE
+python_version = sys.version_info[0]
 
-CREATE_NO_WINDOW = 0x08000000
-
-if sys.platform != "win32":
-  CREATE_NO_WINDOW = 0
+if python_version == 3 :
+  from . import last_package_version
+  from . import suggestion_from_folder
+  from . import popen
+else:
+  import popen
+  import last_package_version
+  import suggestion_from_folder
 
 pkg_path = os.path.abspath(os.path.dirname(__file__))
 
@@ -21,20 +26,21 @@ class SublimeNodeRequireReplaceCommand(sublime_plugin.TextCommand):
       for sel in self.view.sel() :
         self.view.replace(edit, sel, chrs)
 
+def get_module_last_version(name):
+  res = popen.get_node_output(['node', os.path.join(pkg_path,'node_scripts/get_target_repo_installed_version.js'), str(name)])
+  return res.strip()
+
+
 class GetLastPackageVersionCommand(sublime_plugin.TextCommand):
 
   def run( self, edit, name ):
-    check_thread = Popen(['node', os.path.join(pkg_path,'node_scripts/get_target_repo_installed_version.js'), str(name)], stdout=PIPE,stderr=PIPE, creationflags=CREATE_NO_WINDOW)
-    jsresult = check_thread.stdout.read()
-    check_err = check_thread.stderr.read()
-    if check_err : 
-      print(check_err)
-      return False
-    res = jsresult[:-1]
+    jsresult = popen.get_node_output(['node', os.path.join(pkg_path,'node_scripts/get_target_repo_installed_version.js'), str(name)])
+
+    res = jsresult.strip()
 
     if res :
       for sel in self.view.sel() :
-        self.view.replace(edit, sel, str(res, encoding='utf8'))
+        self.view.replace(edit, sel, res)
 
 class LastPackageVersionCommand(sublime_plugin.TextCommand):
   def run(self, edit):
