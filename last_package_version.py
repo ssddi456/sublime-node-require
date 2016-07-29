@@ -6,6 +6,10 @@ import json
 from subprocess import Popen, PIPE
 
 CREATE_NO_WINDOW = 0x08000000
+
+if sys.platform != "win32":
+  CREATE_NO_WINDOW = 0
+
 pkg_path = os.path.abspath(os.path.dirname(__file__))
 
 

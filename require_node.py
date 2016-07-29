@@ -406,13 +406,14 @@ class WriteRequireCommand(RequireNodeCommand):
         # parse file exports
 
         CREATE_NO_WINDOW = 0x08000000
+        if sys.platform != "win32":
+          CREATE_NO_WINDOW = 0
+
         path = os.path
 
-        print(path.join(pkg_path,'node_scripts/get_exports_names.js'))
-        print(path.normpath(path.join(path.dirname(self.full_name), module_rel_path)))
 
         check_thread = Popen(['node', 
-            path.join(pkg_path,'node_scripts/get_exports_names.js'), 
+            path.normpath(path.join(pkg_path,'node_scripts/get_exports_names.js')),
             path.normpath(path.join(path.dirname(self.full_name), module_rel_path))
           ], stdout=PIPE,stderr=PIPE, creationflags=CREATE_NO_WINDOW)
 
