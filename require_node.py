@@ -408,6 +408,9 @@ class WriteRequireCommand(RequireNodeCommand):
         CREATE_NO_WINDOW = 0x08000000
         path = os.path
 
+        print(path.join(pkg_path,'node_scripts/get_exports_names.js'))
+        print(path.normpath(path.join(path.dirname(self.full_name), module_rel_path)))
+
         check_thread = Popen(['node', 
             path.join(pkg_path,'node_scripts/get_exports_names.js'), 
             path.normpath(path.join(path.dirname(self.full_name), module_rel_path))
