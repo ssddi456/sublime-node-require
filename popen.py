@@ -19,6 +19,7 @@ def get_node_output(cmd):
       startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
       return subprocess.Popen(cmd,
         stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         startupinfo=startupinfo).communicate()[0]
   else:
     # Handle all OS in Python 3.

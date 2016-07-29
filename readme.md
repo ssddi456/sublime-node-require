@@ -34,7 +34,7 @@ the sublime text custom plugins folder is ```Data/Packages```
 
 ```cd sublime-node-require```
 
-```npm install```
+```npm install``` ( for nodejs 6.x  modules should install locally)
 
 
 ### With [Package Decontrol](https://github.com/jfromaniello/Sublime-Package-Decontrol)
