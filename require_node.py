@@ -2,7 +2,7 @@ import sublime
 import sublime_plugin
 import os
 from subprocess import Popen, PIPE
-from tempfile import SpooledTemporaryFile as tempfile
+
 import json
 import string
 import re
@@ -17,10 +17,11 @@ python_version = sys.version_info[0]
 if python_version == 3 :
   from . import last_package_version
   from . import suggestion_from_folder
+  from . import popen
 else:
+  import popen
   import last_package_version
   import suggestion_from_folder
-
 
 re_require = r'(^.*var\s\w+\s*=\s*require\(([^\(\)]+)\).*$)'
 re_require_nw = r'(^.*var\s\w+\s*=\s*global\.require\([^\(\)]+\)$)'
@@ -126,24 +127,27 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
         return [resolvers, suggestions]
         
     def get_suggestion_native_modules(self):
-        NODE_MODULES_LIST = os.path.join(pkg_path,'node_modules.list')
+        path = os.path
+        NODE_MODULES_LIST = path.join(pkg_path,'node_modules.list')
         try:
             if os.path.exists(NODE_MODULES_LIST) :
+                print('cache file exists')
                 source = open(NODE_MODULES_LIST)
                 results= json.loads(source.read())
                 source.close()
             else :
                 # load native node modules from node
-                f = tempfile()
-                f.write('console.log(Object.keys(process.binding("natives")))')
-                f.seek(0)
-                jsresult = (Popen(['node'], stdout=PIPE, stdin=f)).stdout.read().replace("'", '"')
-                f.close()
-                # write list to list file
+                jsresult = popen.get_node_output(['node',
+                  path.join(pkg_path, 'node_scripts/get_native_bindings.js')]);
+
+                jsresult = jsresult.strip().replace("'", '"')
+
+                # write list to cache file
                 results = json.loads(jsresult)
                 source = open(NODE_MODULES_LIST,'w')
                 source.write(jsresult)
                 source.close()
+                print('write cache file success')
 
             result = [
                         [[ni, ni, 'is_native'] for ni in results],
@@ -152,7 +156,8 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
             return result
         
         except Exception:
-           return [[], []]
+          print('load native bindings fail')
+          return [[], []]
 
     def type_check( self ):
       view = self.view
@@ -405,26 +410,20 @@ class WriteRequireCommand(RequireNodeCommand):
       if module_flag == 'is_relative_file' :
         # parse file exports
 
-        CREATE_NO_WINDOW = 0x08000000
-        if sys.platform != "win32":
-          CREATE_NO_WINDOW = 0
-
         path = os.path
 
 
-        check_thread = Popen(['node', 
+        module_export_names = popen.get_node_output(['node', 
             path.normpath(path.join(pkg_path,'node_scripts/get_exports_names.js')),
             path.normpath(path.join(path.dirname(self.full_name), module_rel_path))
-          ], stdout=PIPE,stderr=PIPE, creationflags=CREATE_NO_WINDOW)
-
-        module_export_names = check_thread.stdout.read().decode('utf8').strip()
-        check_err = check_thread.stderr.read()
+          ])
 
         if len(module_export_names) == 0 :
           module_export_names = module_candidate_name
+        else:
+          module_export_names = module_export_names.strip()
 
         print('module_export_names', module_export_names)
-        print('check_err', check_err)
 
         require_directive = 'import {0} from {1};'.format(module_export_names, get_path(module_rel_path))
       else :
