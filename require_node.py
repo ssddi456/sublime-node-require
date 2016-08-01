@@ -412,7 +412,6 @@ class WriteRequireCommand(RequireNodeCommand):
 
         path = os.path
 
-
         module_export_names = popen.get_node_output(['node', 
             path.normpath(path.join(pkg_path,'node_scripts/get_exports_names.js')),
             path.normpath(path.join(path.dirname(self.full_name), module_rel_path))

@@ -7,13 +7,9 @@ import sys
 python_version = sys.version_info[0]
 
 if python_version == 3 :
-  from . import last_package_version
-  from . import suggestion_from_folder
   from . import popen
 else:
   import popen
-  import last_package_version
-  import suggestion_from_folder
 
 pkg_path = os.path.abspath(os.path.dirname(__file__))
 
