@@ -1,3 +1,4 @@
 {
-    "quotes_type": "simple" /* use 'double', for double quotes */
+    "quotes_type": "simple" /* use 'double', for double quotes */,
+    "node_path": "node"
 }

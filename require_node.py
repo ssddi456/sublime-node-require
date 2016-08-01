@@ -27,6 +27,9 @@ re_require = r'(^.*var\s\w+\s*=\s*require\(([^\(\)]+)\).*$)'
 re_require_nw = r'(^.*var\s\w+\s*=\s*global\.require\([^\(\)]+\)$)'
 re_empty   = r'^\n?\s*\n?\s*\n?$'
 
+settings = sublime.load_settings(__name__ + '.sublime-settings')
+node_path = settings.get('node_path', 'node')
+
 class RequireNodeCommand(sublime_plugin.TextCommand):
     def is_inline_require_region( self ):
       def getlastline(line):
@@ -137,7 +140,7 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
                 source.close()
             else :
                 # load native node modules from node
-                jsresult = popen.get_node_output(['node',
+                jsresult = popen.get_node_output([node_path,
                   path.join(pkg_path, 'node_scripts/get_native_bindings.js')]);
 
                 jsresult = jsresult.strip().replace("'", '"')
@@ -330,7 +333,6 @@ class WriteRequireCommand(RequireNodeCommand):
       return name
 
     def get_path(path):
-        settings = sublime.load_settings(__name__ + '.sublime-settings')
         quotes_type = settings.get('quotes_type')
         quote = "'"
         if quotes_type == "double":
@@ -412,7 +414,7 @@ class WriteRequireCommand(RequireNodeCommand):
 
         path = os.path
 
-        module_export_names = popen.get_node_output(['node', 
+        module_export_names = popen.get_node_output([node_path, 
             path.normpath(path.join(pkg_path,'node_scripts/get_exports_names.js')),
             path.normpath(path.join(path.dirname(self.full_name), module_rel_path))
           ])
