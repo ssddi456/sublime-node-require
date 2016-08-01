@@ -32,4 +32,4 @@ def get_node_output(cmd):
     run = '"' + '" "'.join(cmd) + '"'
     print('run', run)
     
-    return subprocess.check_output(run, stderr=subprocess.PIPE, shell=True, env=os.environ).decode('utf8')
+    return subprocess.check_output(run, stderr=subprocess.PIPE, shell=True, env=env).decode('utf8')

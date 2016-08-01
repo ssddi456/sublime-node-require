@@ -71,3 +71,6 @@ If not in a .js file, this plugin will scane all file in your project folder, cr
 
 ```[add require]remove require``` will remove the select required module
 
+## Trouble shooting
+
+If node native module can not be found in suggestions, try specific your node with ```node_path``` in ```require_node.sublime-settings```
