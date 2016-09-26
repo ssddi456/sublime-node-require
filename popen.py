@@ -6,6 +6,12 @@ try:
 except ImportError:
   pass
 
+env = os.environ.copy()
+
+# fix for osx
+if sublime.platform() == 'osx' :
+  env['Path'] += ':/usr/local/bin'
+
 def get_node_output(cmd):
   if int(sublime.version()) < 3000:
     if sublime.platform() != "windows":
@@ -25,4 +31,5 @@ def get_node_output(cmd):
     # Handle all OS in Python 3.
     run = '"' + '" "'.join(cmd) + '"'
     print('run', run)
+    
     return subprocess.check_output(run, stderr=subprocess.PIPE, shell=True, env=os.environ).decode('utf8')

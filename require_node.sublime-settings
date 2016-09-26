@@ -1,4 +1,5 @@
 {
     "snippet_host": "http://cp01-rd-junheng2-rd226.cp01.baidu.com:8500",
-    "quotes_type": "simple" /* use 'double', for double quotes */
+    "quotes_type": "simple" /* use 'double', for double quotes */,
+    "node_path": "node"
 }
