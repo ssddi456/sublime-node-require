@@ -18,10 +18,12 @@ if python_version == 3 :
   from . import last_package_version
   from . import suggestion_from_folder
   from . import popen
+  from . import http_util
 else:
   import popen
   import last_package_version
   import suggestion_from_folder
+  import http_util
 
 re_require = r'(^.*var\s\w+\s*=\s*require\(([^\(\)]+)\).*$)'
 re_require_nw = r'(^.*var\s\w+\s*=\s*global\.require\([^\(\)]+\)$)'
@@ -59,20 +61,27 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
         self.view.run_command('write_path', { 'resolvers' : resolvers, 'index' : index })
       return write
 
-    def find_package_json(self):
+    def find_file_in_project_root(self, target_file_name):
         resolvers = []
         suggestions = []
         current_file_dirs = self.full_name.split(os.path.sep)
         current_dir = os.path.split(self.full_name)[0]
         if len(self.window.folders())!= 0 :
             for x in range(len(self.window.folders()[0].split(os.path.sep)), len(current_file_dirs)):
-                candidate = os.path.join(current_dir, "package.json")
+                candidate = os.path.join(current_dir, target_file_name)
                 
                 if os.path.isfile(candidate) : 
                     return candidate
 
                 current_dir = os.path.split(current_dir)[0]
         return False
+      
+    def find_fis_conf(self):
+      return self.find_file_in_project_root("fis-conf.js");
+
+    def find_package_json(self):
+      return self.find_file_in_project_root("package.json");
+
 
     def update_package_json(self, package_json_file_path, module_name):
 
@@ -178,6 +187,10 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
       self.node_tpl   = "var %s = require(%s);"
       self.re_require = re_require
       self.is_node_webkit = False
+      self.is_fis_project = False
+
+      if self.find_fis_conf():
+        self.is_fis_project = True
 
       if view.find(r'require\(\[', 0 ) or view.find(r'define\(\[', 0 ) :
         self.type = 'requirejs'
@@ -262,6 +275,28 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
         return ret
       else:
         return []
+
+    def pre_load(self):
+      view = self.view
+      self.full_name = view.file_name()
+
+      if not self.full_name :
+        return False
+
+      self.type_check()
+
+      # read from project folders
+      _folders = self.window.folders()
+
+      return suggestion_from_folder.require_from_folder( _folders, self.full_name, self.type )
+
+    def post_load(self, suggestions, resolvers):
+      if self.type == 'other' :
+        self.window.show_quick_panel(suggestions, self.write_path(resolvers))
+      else :
+        self.window.show_quick_panel(suggestions, self.write_require(resolvers))
+
+
     def run(self, edit):
       view = self.view
       self.full_name = view.file_name()
@@ -269,47 +304,100 @@ class RequireNodeCommand(sublime_plugin.TextCommand):
       if not self.full_name :
         return
 
-      self.window = view.window()
+      self.type_check()
 
-      self.type_check()        
+      if self.is_fis_project == True:
+        self.view.run_command('require_fis_js')
+      elif self.type != 'other' and ((self.type == 'requirejs' and self.is_inline_require_region() ) or self.type != 'requirejs' ) :
+        self.view.run_command('require_node_js')
+      elif self.type == 'requirejs' :
+        self.view.run_command('require_require_js')
 
-      # read from project folders
-      _folders = self.window.folders()
 
-      suggestions, resolvers = suggestion_from_folder.require_from_folder( _folders, self.full_name, self.type )
 
-      if self.type != 'other' and ((self.type == 'requirejs' and self.is_inline_require_region() ) or self.type != 'requirejs' ) :
-          #create suggestions for modules in node_modules folder
-          [resolvers_from_nm, suggestions_from_nm]     = self.get_suggestion_from_nodemodules()
-          resolvers                                   += resolvers_from_nm
-          suggestions                                 += suggestions_from_nm
+class RequireRequireJsCommand(RequireNodeCommand):
+  def run(self, edit):
+    info = self.pre_load()
 
-          #create suggestions from buildin modules
-          [resolvers_from_native, suggestions_from_nm] = self.get_suggestion_native_modules()
-          resolvers                                   += resolvers_from_native
-          suggestions                                 += suggestions_from_nm
+    if info == False:
+      return
 
-          #create suggestions from global modules
-          [resolvers_from_native, suggestions_from_nm] = self.get_suggestion_from_nodemodules_g()
-          resolvers                                   += resolvers_from_native
-          suggestions                                 += suggestions_from_nm
-      
-      if self.type == 'requirejs' :
-        # hard code amd module-id
-        hard_code_module_ids = {
-          'jquery' : '$',
-          'ko': 'ko',
-          'underscore' : '__'
-        }
-        for module_id, module_name in hard_code_module_ids.items() :
-          resolvers.append([hard_code_module_ids[module_id],module_id, 'is_hard_code'])
-          suggestions.append('solid :: ' + module_id )
+    suggestions, resolvers = info
 
-      if self.type == 'other' :
-        self.window.show_quick_panel(suggestions, self.write_path(resolvers))
-      else :
-        self.window.show_quick_panel(suggestions, self.write_require(resolvers))
+    # hard code amd module-id
+    hard_code_module_ids = {
+      'jquery' : '$',
+      'ko': 'ko',
+      'underscore' : '__'
+    }
+    for module_id, module_name in hard_code_module_ids.items() :
+      resolvers.append([hard_code_module_ids[module_id],module_id, 'is_hard_code'])
+      suggestions.append('solid :: ' + module_id )
 
+    self.post_load(suggestions, resolvers)
+
+
+class RequireNodeJsCommand(RequireNodeCommand):
+  def run(self, edit):
+    info = self.pre_load()
+    if info == False:
+      return
+
+    suggestions, resolvers = info
+
+    #create suggestions for modules in node_modules folder
+    [resolvers_from_nm, suggestions_from_nm]     = self.get_suggestion_from_nodemodules()
+    resolvers                                   += resolvers_from_nm
+    suggestions                                 += suggestions_from_nm
+
+    #create suggestions from buildin modules
+    [resolvers_from_native, suggestions_from_nm] = self.get_suggestion_native_modules()
+    resolvers                                   += resolvers_from_native
+    suggestions                                 += suggestions_from_nm
+
+    #create suggestions from global modules
+    [resolvers_from_native, suggestions_from_nm] = self.get_suggestion_from_nodemodules_g()
+    resolvers                                   += resolvers_from_native
+    suggestions                                 += suggestions_from_nm
+
+    self.post_load(suggestions, resolvers)
+
+
+class RequireFisJsCommand(RequireNodeCommand):
+  def run(self, edit):
+    info = self.pre_load()
+    if info == False:
+      return
+
+    suggestions, resolvers = info
+
+    settings = sublime.load_settings(__name__ + '.sublime-settings')
+    host = settings.get('snippet_host') or 'http://cp01-rd-junheng2-rd226.cp01.baidu.com:8500'
+
+    try:
+      res = http_util.http_get( host + '/module/list')
+    except Exception, e:
+      print e
+      return
+
+    if res['err'] != 0 or len(res['docs']) == 0 :
+      print 'no remote module infos'
+
+    uniq_arr = []
+
+    for doc in res['docs'] : 
+      doc_id = doc['id'];
+      if not doc_id in uniq_arr and doc_id[-3:] == '.js' or  doc_id[-4] == '.es6' :
+        uniq_arr.append(doc_id)
+
+        suggestions.append(doc_id)
+
+        file_wo_ext = os.path.splitext(doc_id)[0]
+        module_candidate_name = os.path.basename(file_wo_ext).replace(".", "")
+
+        resolvers.append([ module_candidate_name, doc_id, 'fis_module'])
+
+    self.post_load(suggestions, resolvers)
 
 class WriteRequireCommand(RequireNodeCommand):
 
@@ -336,7 +424,11 @@ class WriteRequireCommand(RequireNodeCommand):
         if quotes_type == "double":
             quote = "\""
 
-        path, ext_name = os.path.splitext(path)
+        if self.is_fis_project : 
+          pass
+        else :
+          path, ext_name = os.path.splitext(path)
+
         return quote + path + quote
 
     def getlastline(line):
@@ -476,7 +568,7 @@ class WriteRequireCommand(RequireNodeCommand):
       
       require_directive = self.node_tpl % module_info
 
-      write_requirejs( module_candidate_name, module_rel_path )
+      write_requirejs( module_candidate_name, get_path(module_rel_path) )
 
     elif self.type == 'es6':
 

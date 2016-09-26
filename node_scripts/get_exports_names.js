@@ -6,6 +6,8 @@ var estraverse = require('estraverse');
 var esprima = require('esprima');
 
 var target_file= argv[2];
+console.error(target_file);
+
 try{
   var ast = esprima.parse(fs.readFileSync(target_file,'utf8'), { sourceType: 'module' });
 } catch(e){
